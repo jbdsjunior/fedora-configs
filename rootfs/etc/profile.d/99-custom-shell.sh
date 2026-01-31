@@ -1,5 +1,3 @@
-# Global Shell Configuration for Kinoite
-
 # Initialize Starship if installed
 if command -v starship &> /dev/null; then
     eval "$(starship init bash)"
