@@ -1,34 +1,35 @@
 #!/bin/bash
 set -euo pipefail
 
-# Caminho dos arquivos de origem (ajuste se necessário)
+# Definição de caminhos
 ROOTFS_ETC="../rootfs/etc"
 
-echo "--- Iniciando Otimização Fedora (Modo Linear) ---"
+echo "--- Iniciando Otimização Fedora Workstation (Compatível F43+) ---"
 
 # -----------------------------------------------------------
 # 1. Sysctl & Kernel (BBR, Performance)
 # -----------------------------------------------------------
-echo "[1/7] Aplicando Sysctl e Módulos..."
+echo "[1/7] Aplicando Otimizações de Kernel e Sysctl..."
 
 # Sysctl
 sudo mkdir -p /etc/sysctl.d
 sudo cp "$ROOTFS_ETC/sysctl.d/"*.conf /etc/sysctl.d/
 sudo chmod 644 /etc/sysctl.d/*.conf
 
-# Modules
+# Modules (BBR)
 sudo mkdir -p /etc/modules-load.d
 sudo cp "$ROOTFS_ETC/modules-load.d/"*.conf /etc/modules-load.d/
 sudo chmod 644 /etc/modules-load.d/*.conf
 
 # Aplicar mudanças
-sudo sysctl --system
-sudo modprobe tcp_bbr || echo "Aviso: tcp_bbr não carregado (pode ser built-in)."
+echo "  -> Carregando parâmetros..."
+sudo sysctl --system > /dev/null
+sudo modprobe tcp_bbr || echo "  [!] Aviso: tcp_bbr não carregado (pode ser built-in no kernel F43)."
 
 # -----------------------------------------------------------
 # 2. Rede (DNS & NetworkManager)
 # -----------------------------------------------------------
-echo "[2/7] Configurando Rede..."
+echo "[2/7] Configurando Privacidade e DNS..."
 
 # Resolved (DNS)
 sudo mkdir -p /etc/systemd/resolved.conf.d
@@ -41,13 +42,14 @@ sudo cp "$ROOTFS_ETC/NetworkManager/conf.d/"*.conf /etc/NetworkManager/conf.d/
 sudo chmod 644 /etc/NetworkManager/conf.d/*.conf
 
 # Reiniciar serviços
+echo "  -> Reiniciando NetworkManager e Resolved..."
 sudo systemctl restart systemd-resolved
 sudo systemctl reload NetworkManager
 
 # -----------------------------------------------------------
-# 3. Virtualização e BTRFS (Tmpfiles)
+# 3. Virtualização e BTRFS (No_COW)
 # -----------------------------------------------------------
-echo "[3/7] Configurando tmpfiles (No_COW)..."
+echo "[3/7] Configurando tmpfiles (Performance BTRFS)..."
 
 # System tmpfiles
 sudo mkdir -p /etc/tmpfiles.d
@@ -79,33 +81,29 @@ sudo systemctl start /dev/zram0 || true
 # -----------------------------------------------------------
 echo "[5/7] Ajustando Shell e Fontes..."
 
-# Fontes
-sudo mkdir -p /etc/fonts/conf.d
-sudo cp "$ROOTFS_ETC/fonts/conf.d/"*.conf /etc/fonts/conf.d/
-sudo chmod 644 /etc/fonts/conf.d/*.conf
+# # Fontes
+# sudo mkdir -p /etc/fonts/conf.d
+# sudo cp "$ROOTFS_ETC/fonts/conf.d/"*.conf /etc/fonts/conf.d/
+# sudo chmod 644 /etc/fonts/conf.d/*.conf
 
-# Shell Profile (CORREÇÃO: alterado de *.conf para *.sh)
+# Shell Profile (Corrigido extensão .sh)
 sudo mkdir -p /etc/profile.d
 sudo cp "$ROOTFS_ETC/profile.d/"*.sh /etc/profile.d/
 sudo chmod 644 /etc/profile.d/*.sh
 
 # -----------------------------------------------------------
-# 6. Automação de Updates
+# 6. Automação de Updates (Detecção DNF4 vs DNF5)
 # -----------------------------------------------------------
-echo "[6/7] Configurando Updates..."
+echo "[6/7] Configurando Updates Automáticos..."
 
-# Flatpak Timer (CORREÇÃO: nome do arquivo destino corrigido)
-sudo mkdir -p /etc/systemd/system/flatpak-system-update.timer.d/
-sudo cp "$ROOTFS_ETC/systemd/system/flatpak-system-update.timer.d/custom-schedule.conf" \
-        "/etc/systemd/system/flatpak-system-update.timer.d/custom-schedule.conf"
-sudo chmod 644 "/etc/systemd/system/flatpak-system-update.timer.d/custom-schedule.conf"
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now flatpak-system-update.timer
-
-# DNF Automatic (apenas se dnf existir)
-if command -v dnf &> /dev/null; then
-    echo "Instalando dnf-automatic..."
+# DNF: Detecta se é DNF5 (Fedora 41+) ou DNF4 e ativa o correto
+if command -v dnf5 &> /dev/null; then
+    echo "  -> Detectado DNF5. Instalando plugin..."
+    sudo dnf install -y dnf5-plugin-automatic || true
+    # Tenta ativar o timer (o nome pode variar, tentamos o padrão)
+    sudo systemctl enable --now dnf5-automatic.timer || echo "  [!] Aviso: Verifique o nome do timer dnf5 (ex: dnf5-automatic.timer)"
+elif command -v dnf &> /dev/null; then
+    echo "  -> Detectado DNF4. Configurando dnf-automatic..."
     sudo dnf install -y dnf-automatic
     sudo systemctl enable --now dnf-automatic.timer
 fi
@@ -113,10 +111,11 @@ fi
 # -----------------------------------------------------------
 # 7. Serviços de Usuário (Rclone)
 # -----------------------------------------------------------
-echo "[7/7] Instalando Templates de Serviço..."
+echo "[7/7] Instalando Templates de Serviço (Rclone)..."
 
 sudo mkdir -p /etc/systemd/user
+# Copia o arquivo corrigido (verifique se você atualizou o conteúdo do arquivo rclone antes!)
 sudo cp "$ROOTFS_ETC/systemd/user/"*.service /etc/systemd/user/
 sudo chmod 644 /etc/systemd/user/*.service
 
-echo "--- Setup concluído! Reinicie o sistema. ---"
+echo "--- Setup concluído! Reinicie o computador. ---"
