@@ -81,10 +81,10 @@ sudo systemctl start /dev/zram0 || true
 # -----------------------------------------------------------
 echo "[5/7] Ajustando Shell e Fontes..."
 
-# # Fontes
-# sudo mkdir -p /etc/fonts/conf.d
-# sudo cp "$ROOTFS_ETC/fonts/conf.d/"*.conf /etc/fonts/conf.d/
-# sudo chmod 644 /etc/fonts/conf.d/*.conf
+# Fontes
+sudo mkdir -p /etc/fonts/conf.d
+sudo cp "$ROOTFS_ETC/fonts/conf.d/"*.conf /etc/fonts/conf.d/
+sudo chmod 644 /etc/fonts/conf.d/*.conf
 
 # Shell Profile (Corrigido extensão .sh)
 sudo mkdir -p /etc/profile.d

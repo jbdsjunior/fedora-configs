@@ -5,6 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=notify
+# Garante que o diretório existe antes de montar
 ExecStartPre=/usr/bin/mkdir -p %h/Cloud/%i
 ExecStart=/usr/bin/rclone mount %i: %h/Cloud/%i \
     --config=%h/.config/rclone/rclone.conf \
@@ -29,6 +30,7 @@ ExecStart=/usr/bin/rclone mount %i: %h/Cloud/%i \
     --drive-stop-on-upload-limit \
     --umask=022
 
+# Desmonta com lazy unmount (-z) para evitar travamentos se a rede cair
 ExecStop=/bin/fusermount3 -uz %h/Cloud/%i
 Restart=on-failure
 RestartSec=10
